@@ -6,4 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+futures = { version = "0.3.30", default-features = false }
 poise = "0.6.1"
+rusqlite = { version = "0.31.0", features = ["bundled"] }
+tokio = { version = "1.36.0", features = ["full"] }
