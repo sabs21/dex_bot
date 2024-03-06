@@ -12,5 +12,5 @@ inner join
         and (bt2.base_type = t.id) 
     )
 where
-    (bt.type = (select id from types where name = ?1))
-    and (bt2.type = (select id from types where name = ?2));
+    (bt.type = ?1)
+    and (bt2.type = ?2);
