@@ -179,6 +179,25 @@ pub async fn dex(
                             true 
                         )
                         .field(
+                            "Abilities",
+                            match get_abilities(&res.id) {
+                                Ok(rows) => {
+                                    let mut content: String = "".to_string();
+                                    for row in rows {
+                                        content.push_str(&row.name.to_string());
+                                        content.push_str(":\t");
+                                        content.push_str(&row.description.to_string());
+                                        content.push_str("\n");
+                                    }
+                                    content
+                                },
+                                Err(e) => {
+                                    format!("{}", e.to_string())
+                                }
+                            },
+                            false
+                        )
+                        .field(
                             "Egg Groups",
                             match res.egg_group2 {
                                 Some(egg_group2) => {
@@ -360,6 +379,36 @@ fn get_pokemon(name: &String) -> Result<Pokemon, rusqlite::Error> {
             sprite:row.get(23).unwrap_or(Some("".to_string())) 
         })
     })
+}
+struct Ability {
+    name: String,
+    description: String
+}
+fn get_abilities(pokemon_id: &u16) -> Result<Vec<Ability>, rusqlite::Error> {
+    let sql = match std::fs::read_to_string("./src/queries/get_abilities.sql") {
+        Ok(contents) => contents,
+        Err(e) => {
+            println!("{}", e.to_string());
+            panic!()
+        }
+    };
+    let conn = rusqlite::Connection::open("rowedex.db").unwrap();
+    let mut stmt = conn.prepare(&sql).unwrap();
+    let mut rows = match stmt.query([pokemon_id]) {
+        Ok(res) => res,
+        Err(e) => {
+            println!("ERROR (Query): {0}", e.to_string());
+            return Err(e);
+        }
+    };
+    let mut abilities: Vec<Ability> = Vec::new();
+    while let Some(row) = rows.next().unwrap() {
+        abilities.push(Ability {
+            name: row.get(0)?,
+            description: row.get(1)?
+        });
+    }
+    Ok(abilities) 
 }
 fn get_color_from_type(pokemon_type: &String) -> serenity::model::Color {
     match pokemon_type.as_ref() {
