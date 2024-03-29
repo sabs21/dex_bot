@@ -141,6 +141,7 @@ pub async fn dex(
         Ok(res) => {
             let msg = {
                 poise::CreateReply::default()
+                    .ephemeral(true)
                     .embed(serenity::CreateEmbed::new()
                         .title(
                             format!(
@@ -282,16 +283,16 @@ pub async fn dex(
                     )
                     .components(vec![
                         serenity::CreateActionRow::Buttons(vec![
-                            serenity::CreateButton::new("level_up_btn")
+                            serenity::CreateButton::new(&("levelup_btn__".to_owned() + &res.id.to_string()))
                                 .style(serenity::ButtonStyle::Secondary)
                                 .label("Level-Up"),
-                            serenity::CreateButton::new("hmtm_btn")
+                            serenity::CreateButton::new(&("hmtm_btn__".to_owned() + &res.id.to_string()))
                                 .style(serenity::ButtonStyle::Secondary)
                                 .label("HM/TM"),
-                            serenity::CreateButton::new("tutor_btn")
+                            serenity::CreateButton::new(&("tutor_btn__".to_owned() + &res.id.to_string()))
                                 .style(serenity::ButtonStyle::Secondary)
                                 .label("Tutor"),
-                            serenity::CreateButton::new("egg_moves_btn")
+                            serenity::CreateButton::new(&("eggmoves_btn__".to_owned() + &res.id.to_string()))
                                 .style(serenity::ButtonStyle::Secondary)
                                 .label("Egg Moves")
                         ])
@@ -300,7 +301,7 @@ pub async fn dex(
             ctx.send(msg).await?
         },
         Err(e) => {
-            println!("{0}", e.to_string());
+            println!("Failed to retrieve pokemon data. {0}", e.to_string());
             ctx.say(format!("Pokemon not found.")).await?
         }
     };
