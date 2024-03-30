@@ -1,6 +1,6 @@
 use crate::{Context, Error};
-use poise::serenity_prelude as serenity;
 use futures::{Stream, StreamExt};
+use poise::serenity_prelude as serenity;
 
 /// Show this help menu
 #[poise::command(prefix_command, track_edits, slash_command)]
@@ -25,7 +25,7 @@ pub async fn help(
 struct Split {
     id: i32,
     name: String,
-    internal_name: String
+    internal_name: String,
 }
 /// Retrieve information about a Pokemon from the server PokeDex.
 ///
@@ -34,19 +34,18 @@ struct Split {
 #[poise::command(prefix_command, slash_command)]
 pub async fn splits(
     ctx: Context<'_>,
-    #[description = "Retrieve information about a Pokemon from the server PokeDex."] pokemon: String,
+    #[description = "Retrieve information about a Pokemon from the server PokeDex."]
+    pokemon: String,
 ) -> Result<(), Error> {
     match get_splits() {
         Ok(res) => {
             for split in res {
                 println!(
-                    "Id: {0}, Name: {1}, Internal Name: {2}", 
-                    split.id,
-                    split.name,
-                    split.internal_name
-                ); 
+                    "Id: {0}, Name: {1}, Internal Name: {2}",
+                    split.id, split.name, split.internal_name
+                );
             }
-        },
+        }
         Err(e) => {
             println!("{0}", e.to_string())
         }
@@ -61,14 +60,14 @@ fn get_splits() -> Result<Vec<Split>, Error> {
     let conn = match rusqlite::Connection::open("rowedex.db") {
         Ok(path) => path,
         Err(e) => {
-            println!("ERROR (Connection): {0}", e.to_string()); 
+            println!("ERROR (Connection): {0}", e.to_string());
             return Err(Box::new(e));
         }
     };
     let mut stmt = match conn.prepare("select * from splits") {
         Ok(prepped) => prepped,
         Err(e) => {
-            println!("ERROR (Prepare): {0}", e.to_string()); 
+            println!("ERROR (Prepare): {0}", e.to_string());
             return Err(Box::new(e));
         }
     };
@@ -84,7 +83,7 @@ fn get_splits() -> Result<Vec<Split>, Error> {
         splits.push(Split {
             id: row.get(0)?,
             name: row.get(1)?,
-            internal_name: row.get(2)?
+            internal_name: row.get(2)?,
         });
     }
     Ok(splits)
@@ -117,11 +116,11 @@ struct Pokemon {
     item1_name: Option<String>,
     item2: Option<u16>,
     item2_name: Option<String>,
-    sprite: Option<String>
+    sprite: Option<String>,
 }
 struct Effectiveness {
     attacking_type: String,
-    value: f32 
+    value: f32,
 }
 
 /// Retrieve information about a Pokemon from the server PokeDex.
@@ -131,8 +130,8 @@ struct Effectiveness {
 #[poise::command(prefix_command, slash_command)]
 pub async fn dex(
     ctx: Context<'_>,
-    #[description = "Retrieve information about a Pokemon from the server PokeDex."] 
-    #[autocomplete = "autocomplete_pokemon"] 
+    #[description = "Retrieve information about a Pokemon from the server PokeDex."]
+    #[autocomplete = "autocomplete_pokemon"]
     pokemon: String,
 ) -> Result<(), Error> {
     match get_pokemon(&pokemon) {
@@ -297,7 +296,7 @@ pub async fn dex(
                     ])
             };
             ctx.send(msg).await?
-        },
+        }
         Err(e) => {
             println!("Failed to retrieve pokemon data. {0}", e.to_string());
             ctx.say(format!("Pokemon not found.")).await?
@@ -309,32 +308,34 @@ pub async fn dex(
 /// Retrieve necessary autocomplete details for locating a specific Pokemon.
 async fn autocomplete_pokemon<'a>(
     _ctx: Context<'_>,
-    partial: &'a str
+    partial: &'a str,
 ) -> impl Stream<Item = serenity::AutocompleteChoice> + 'a {
     // Retrieve a list of Pokemon based on the passed in partial text
-    let mons: Vec<PokemonAutocomplete> = match get_pokemon_autocomplete(partial.to_string()) {
-        Ok(res) => res,
-        Err(e) => {
-            println!("{}", e.to_string());
-            vec![]
-        }
-    };
+    let mons: Vec<PokemonAutocomplete> =
+        match get_pokemon_autocomplete(partial.to_string()) {
+            Ok(res) => res,
+            Err(e) => {
+                println!("{}", e.to_string());
+                vec![]
+            }
+        };
     futures::stream::iter(mons).map(move |pokemon| {
         serenity::AutocompleteChoice::new(
             format!("{0}", pokemon.name),
-            pokemon.name
+            pokemon.name,
         )
     })
 }
-fn get_pokemon_autocomplete(name_partial: String) -> Result<Vec<PokemonAutocomplete>, Error> {
+fn get_pokemon_autocomplete(
+    name_partial: String,
+) -> Result<Vec<PokemonAutocomplete>, Error> {
     let mut mons: Vec<PokemonAutocomplete> = Vec::new();
     let conn = rusqlite::Connection::open("rowedex.db").unwrap();
-    let mut stmt = conn.prepare("select [id], [name] from pokemon where [name] like ?1")?;
+    let mut stmt =
+        conn.prepare("select [id], [name] from pokemon where [name] like ?1")?;
     let mut rows = stmt.query([name_partial + "%"])?;
     while let Some(row) = rows.next()? {
-        mons.push(PokemonAutocomplete {
-            name: row.get(0)?,
-        });
+        mons.push(PokemonAutocomplete { name: row.get(0)? });
     }
     Ok(mons)
 }
@@ -373,13 +374,13 @@ fn get_pokemon(name: &String) -> Result<Pokemon, rusqlite::Error> {
             item1_name: row.get(20).unwrap_or(Some("".to_string())),
             item2: row.get(21).unwrap_or(Some(0)),
             item2_name: row.get(22).unwrap_or(Some("".to_string())),
-            sprite:row.get(23).unwrap_or(Some("".to_string())) 
+            sprite: row.get(23).unwrap_or(Some("".to_string())),
         })
     })
 }
 struct Ability {
     name: String,
-    description: String
+    description: String,
 }
 fn get_abilities(pokemon_id: &u16) -> Result<Vec<Ability>, rusqlite::Error> {
     let sql = match std::fs::read_to_string("./src/queries/get_abilities.sql") {
@@ -402,10 +403,10 @@ fn get_abilities(pokemon_id: &u16) -> Result<Vec<Ability>, rusqlite::Error> {
     while let Some(row) = rows.next().unwrap() {
         abilities.push(Ability {
             name: row.get(0)?,
-            description: row.get(1)?
+            description: row.get(1)?,
         });
     }
-    Ok(abilities) 
+    Ok(abilities)
 }
 fn get_color_from_type(pokemon_type: &String) -> serenity::model::Color {
     match pokemon_type.as_ref() {
@@ -427,19 +428,26 @@ fn get_color_from_type(pokemon_type: &String) -> serenity::model::Color {
         "Dark" => serenity::model::Color::new(7362374),
         "Steel" => serenity::model::Color::new(9868454),
         "Fairy" => serenity::model::Color::new(14058925),
-        _ => serenity::model::Color::LIGHTER_GREY
+        _ => serenity::model::Color::LIGHTER_GREY,
     }
 }
 
 enum Strategy {
     Defensive,
-    Offensive 
+    Offensive,
 }
-fn get_effectiveness(pokemon: &Pokemon, strategy: Strategy) -> Result<Vec<Effectiveness>, Error> {
+fn get_effectiveness(
+    pokemon: &Pokemon,
+    strategy: Strategy,
+) -> Result<Vec<Effectiveness>, Error> {
     let query_path: String;
     match strategy {
-        Strategy::Defensive => query_path = "./src/queries/defensive_calculation.sql".to_string(),
-        Strategy::Offensive => query_path = "./src/queries/offensive_calculation.sql".to_string()
+        Strategy::Defensive => {
+            query_path = "./src/queries/defensive_calculation.sql".to_string()
+        }
+        Strategy::Offensive => {
+            query_path = "./src/queries/offensive_calculation.sql".to_string()
+        }
     }
     let sql = match std::fs::read_to_string(query_path) {
         Ok(contents) => contents,
@@ -461,10 +469,10 @@ fn get_effectiveness(pokemon: &Pokemon, strategy: Strategy) -> Result<Vec<Effect
     while let Some(row) = rows.next().unwrap() {
         effects.push(Effectiveness {
             attacking_type: row.get(0)?,
-            value: row.get(3)?
+            value: row.get(3)?,
         });
     }
-    Ok(effects)    
+    Ok(effects)
 }
 
 /// Ban a user.
@@ -475,10 +483,10 @@ fn get_effectiveness(pokemon: &Pokemon, strategy: Strategy) -> Result<Vec<Effect
 pub async fn ban(
     ctx: Context<'_>,
     #[description = "User to ban"] user: serenity::User,
-    #[description = "Reason for the ban"] reason: String
-    ) -> Result<(), Error> {
-
-    ctx.say(format!("Banning {0}. Reason: {1}", user.name, reason)).await?;
+    #[description = "Reason for the ban"] reason: String,
+) -> Result<(), Error> {
+    ctx.say(format!("Banning {0}. Reason: {1}", user.name, reason))
+        .await?;
     Ok(())
 }
 
@@ -487,18 +495,14 @@ pub async fn ban(
 /// Requires user confirmation before shutting down.
 /// Calling '~shutdown' will not shut the server down instantly.
 #[poise::command(prefix_command, default_member_permissions = "ADMINISTRATOR")]
-pub async fn shutdown(
-    ctx: Context<'_>
-) -> Result<(), Error> {
+pub async fn shutdown(ctx: Context<'_>) -> Result<(), Error> {
     let shut_down_id = "shut_down";
     let reply = {
-        let confirm_button = 
-            serenity::CreateButton::new(shut_down_id)
-                .style(serenity::ButtonStyle::Danger)
-                .label("Shut Down");
-        let components = vec![
-            serenity::CreateActionRow::Buttons(vec![confirm_button])
-        ];
+        let confirm_button = serenity::CreateButton::new(shut_down_id)
+            .style(serenity::ButtonStyle::Danger)
+            .label("Shut Down");
+        let components =
+            vec![serenity::CreateActionRow::Buttons(vec![confirm_button])];
 
         poise::CreateReply::default()
             .content("Are you sure you want to shut down Hammer+?")
@@ -507,10 +511,11 @@ pub async fn shutdown(
 
     ctx.send(reply).await?;
 
-    while let Some(mut _res) = serenity::ComponentInteractionCollector::new(ctx.serenity_context())
-        .timeout(std::time::Duration::from_secs(20))
-        .filter(move |_res| _res.data.custom_id == shut_down_id) 
-        .await
+    while let Some(mut _res) =
+        serenity::ComponentInteractionCollector::new(ctx.serenity_context())
+            .timeout(std::time::Duration::from_secs(20))
+            .filter(move |_res| _res.data.custom_id == shut_down_id)
+            .await
     {
         let success_edit = serenity::EditMessage::new()
             .content("Successfully shut down Hammer+")
@@ -521,4 +526,3 @@ pub async fn shutdown(
     }
     Ok(())
 }
-

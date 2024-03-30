@@ -25,7 +25,9 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
     // They are many errors that can occur, so we only handle the ones we want to customize
     // and forward the rest to the default handler
     match error {
-        poise::FrameworkError::Setup { error, .. } => panic!("Failed to start bot: {:?}", error),
+        poise::FrameworkError::Setup { error, .. } => {
+            panic!("Failed to start bot: {:?}", error)
+        }
         poise::FrameworkError::Command { error, ctx, .. } => {
             println!("Error in command `{}`: {:?}", ctx.command().name, error,);
         }
@@ -45,11 +47,11 @@ async fn main() {
     // Every option can be omitted to use its default value
     let options = poise::FrameworkOptions {
         commands: vec![
-            commands::help(), 
-            commands::ban(), 
+            commands::help(),
+            commands::ban(),
             commands::shutdown(),
             commands::dex(),
-            commands::splits()
+            commands::splits(),
         ],
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some("~".into()),
@@ -67,7 +69,10 @@ async fn main() {
         // This code is run before every command
         pre_command: |ctx| {
             Box::pin(async move {
-                println!("Executing command {}...", ctx.command().qualified_name);
+                println!(
+                    "Executing command {}...",
+                    ctx.command().qualified_name
+                );
             })
         },
         // This code is run after a command if it was successful (returned Ok)
@@ -186,7 +191,7 @@ async fn main() {
                             }
                             _ => {}
                         }
-                    },
+                    }
                     _ => {}
                 }
                 Ok(())
@@ -199,7 +204,11 @@ async fn main() {
         .setup(move |ctx, _ready, framework| {
             Box::pin(async move {
                 println!("Logged in as {}", _ready.user.name);
-                poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                poise::builtins::register_globally(
+                    ctx,
+                    &framework.options().commands,
+                )
+                .await?;
                 Ok(Data {
                     votes: Mutex::new(HashMap::new()),
                 })
@@ -207,11 +216,12 @@ async fn main() {
         })
         .options(options)
         .build();
-    
-    let token = var("DISCORD_TOKEN")
-        .expect("Missing `DISCORD_TOKEN` env var, see README for more information.");
-    let intents =
-        serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT;
+
+    let token = var("DISCORD_TOKEN").expect(
+        "Missing `DISCORD_TOKEN` env var, see README for more information.",
+    );
+    let intents = serenity::GatewayIntents::non_privileged()
+        | serenity::GatewayIntents::MESSAGE_CONTENT;
 
     let client = serenity::ClientBuilder::new(token, intents)
         .framework(framework)
@@ -219,5 +229,3 @@ async fn main() {
 
     client.unwrap().start().await.unwrap()
 }
-
-

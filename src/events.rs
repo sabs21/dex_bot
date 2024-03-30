@@ -4,8 +4,11 @@ pub struct LevelupMove {
     pub level: u8,
 }
 
-pub fn get_levelup_sets(pokemon_id: &u16) -> Result<Vec<LevelupMove>, rusqlite::Error> {
-    let sql = match std::fs::read_to_string("./src/queries/get_levelup_set.sql") {
+pub fn get_levelup_sets(
+    pokemon_id: &u16,
+) -> Result<Vec<LevelupMove>, rusqlite::Error> {
+    let sql = match std::fs::read_to_string("./src/queries/get_levelup_set.sql")
+    {
         Ok(contents) => contents,
         Err(e) => {
             println!("{}", e.to_string());
