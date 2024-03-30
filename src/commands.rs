@@ -90,10 +90,8 @@ fn get_splits() -> Result<Vec<Split>, Error> {
     Ok(splits)
 }
 
-struct PokemonLite{
-    id: u16,
+struct PokemonAutocomplete {
     name: String,
-    //sprite: String
 }
 struct Pokemon {
     id: u16,
@@ -314,7 +312,7 @@ async fn autocomplete_pokemon<'a>(
     partial: &'a str
 ) -> impl Stream<Item = serenity::AutocompleteChoice> + 'a {
     // Retrieve a list of Pokemon based on the passed in partial text
-    let mons: Vec<PokemonLite> = match get_pokemon_lite(partial.to_string()) {
+    let mons: Vec<PokemonAutocomplete> = match get_pokemon_autocomplete(partial.to_string()) {
         Ok(res) => res,
         Err(e) => {
             println!("{}", e.to_string());
@@ -328,16 +326,14 @@ async fn autocomplete_pokemon<'a>(
         )
     })
 }
-fn get_pokemon_lite(name_partial: String) -> Result<Vec<PokemonLite>, Error> {
-    let mut mons: Vec<PokemonLite> = Vec::new();
+fn get_pokemon_autocomplete(name_partial: String) -> Result<Vec<PokemonAutocomplete>, Error> {
+    let mut mons: Vec<PokemonAutocomplete> = Vec::new();
     let conn = rusqlite::Connection::open("rowedex.db").unwrap();
     let mut stmt = conn.prepare("select [id], [name] from pokemon where [name] like ?1")?;
     let mut rows = stmt.query([name_partial + "%"])?;
     while let Some(row) = rows.next()? {
-        mons.push(PokemonLite {
-            id: row.get(0)?,
-            name: row.get(1)?,
-            //sprite: row.get(2)?
+        mons.push(PokemonAutocomplete {
+            name: row.get(0)?,
         });
     }
     Ok(mons)
