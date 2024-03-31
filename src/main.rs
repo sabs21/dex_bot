@@ -5,16 +5,13 @@ mod events;
 
 use poise::serenity_prelude as serenity;
 use std::{
-    collections::HashMap,
     env::var,
-    sync::{Arc, Mutex},
+    sync::Arc,
     time::Duration,
 };
 
 // Custom user data passed to all command functions
-pub struct Data {
-    votes: Mutex<HashMap<String, u32>>,
-}
+pub struct Data { }
 
 // Types used by all command functions
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -48,10 +45,7 @@ async fn main() {
     let options = poise::FrameworkOptions {
         commands: vec![
             commands::help(),
-            commands::ban(),
-            commands::shutdown(),
             commands::dex(),
-            commands::splits(),
         ],
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some("~".into()),
@@ -209,9 +203,7 @@ async fn main() {
                     &framework.options().commands,
                 )
                 .await?;
-                Ok(Data {
-                    votes: Mutex::new(HashMap::new()),
-                })
+                Ok(Data { })
             })
         })
         .options(options)

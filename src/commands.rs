@@ -22,74 +22,8 @@ pub async fn help(
     Ok(())
 }
 
-struct Split {
-    id: i32,
-    name: String,
-    internal_name: String,
-}
-/// Retrieve information about a Pokemon from the server PokeDex.
-///
-/// Usage:
-/// /dex blaziken
-#[poise::command(prefix_command, slash_command)]
-pub async fn splits(
-    ctx: Context<'_>,
-    #[description = "Retrieve information about a Pokemon from the server PokeDex."]
-    pokemon: String,
-) -> Result<(), Error> {
-    match get_splits() {
-        Ok(res) => {
-            for split in res {
-                println!(
-                    "Id: {0}, Name: {1}, Internal Name: {2}",
-                    split.id, split.name, split.internal_name
-                );
-            }
-        }
-        Err(e) => {
-            println!("{0}", e.to_string())
-        }
-    };
-
-    ctx.say(format!("Performed query {pokemon}")).await?;
-    Ok(())
-}
-
-// get_splits is not contained within 'dex' due to an ongoing bug in tokio.
-fn get_splits() -> Result<Vec<Split>, Error> {
-    let conn = match rusqlite::Connection::open("rowedex.db") {
-        Ok(path) => path,
-        Err(e) => {
-            println!("ERROR (Connection): {0}", e.to_string());
-            return Err(Box::new(e));
-        }
-    };
-    let mut stmt = match conn.prepare("select * from splits") {
-        Ok(prepped) => prepped,
-        Err(e) => {
-            println!("ERROR (Prepare): {0}", e.to_string());
-            return Err(Box::new(e));
-        }
-    };
-    let mut rows = match stmt.query([]) {
-        Ok(res) => res,
-        Err(e) => {
-            println!("ERROR (Query): {0}", e.to_string());
-            return Err(Box::new(e));
-        }
-    };
-    let mut splits: Vec<Split> = Vec::new();
-    while let Some(row) = rows.next().unwrap() {
-        splits.push(Split {
-            id: row.get(0)?,
-            name: row.get(1)?,
-            internal_name: row.get(2)?,
-        });
-    }
-    Ok(splits)
-}
-
 struct PokemonAutocomplete {
+    id: u16,
     name: String,
 }
 struct Pokemon {
@@ -335,7 +269,7 @@ fn get_pokemon_autocomplete(
         conn.prepare("select [id], [name] from pokemon where [name] like ?1")?;
     let mut rows = stmt.query([name_partial + "%"])?;
     while let Some(row) = rows.next()? {
-        mons.push(PokemonAutocomplete { name: row.get(0)? });
+        mons.push(PokemonAutocomplete { id: row.get(0)?, name: row.get(1)? });
     }
     Ok(mons)
 }
@@ -475,54 +409,3 @@ fn get_effectiveness(
     Ok(effects)
 }
 
-/// Ban a user.
-///
-/// Usage:
-/// /ban username
-#[poise::command(prefix_command, slash_command)]
-pub async fn ban(
-    ctx: Context<'_>,
-    #[description = "User to ban"] user: serenity::User,
-    #[description = "Reason for the ban"] reason: String,
-) -> Result<(), Error> {
-    ctx.say(format!("Banning {0}. Reason: {1}", user.name, reason))
-        .await?;
-    Ok(())
-}
-
-/// Exit Hammer+ gracefully
-///
-/// Requires user confirmation before shutting down.
-/// Calling '~shutdown' will not shut the server down instantly.
-#[poise::command(prefix_command, default_member_permissions = "ADMINISTRATOR")]
-pub async fn shutdown(ctx: Context<'_>) -> Result<(), Error> {
-    let shut_down_id = "shut_down";
-    let reply = {
-        let confirm_button = serenity::CreateButton::new(shut_down_id)
-            .style(serenity::ButtonStyle::Danger)
-            .label("Shut Down");
-        let components =
-            vec![serenity::CreateActionRow::Buttons(vec![confirm_button])];
-
-        poise::CreateReply::default()
-            .content("Are you sure you want to shut down Hammer+?")
-            .components(components)
-    };
-
-    ctx.send(reply).await?;
-
-    while let Some(mut _res) =
-        serenity::ComponentInteractionCollector::new(ctx.serenity_context())
-            .timeout(std::time::Duration::from_secs(20))
-            .filter(move |_res| _res.data.custom_id == shut_down_id)
-            .await
-    {
-        let success_edit = serenity::EditMessage::new()
-            .content("Successfully shut down Hammer+")
-            .components(vec![]);
-        _res.message.edit(ctx, success_edit).await?;
-        println!("Shutting down...");
-        std::process::exit(0x0);
-    }
-    Ok(())
-}
