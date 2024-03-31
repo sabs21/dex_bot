@@ -38,4 +38,4 @@ left join
 left join
     items i2 on (i2.id = p.item2)
 where
-	p.name like ?1;
+	p.id = ?1;

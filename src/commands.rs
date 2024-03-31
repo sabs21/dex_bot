@@ -68,7 +68,9 @@ pub async fn dex(
     #[autocomplete = "autocomplete_pokemon"]
     pokemon: String,
 ) -> Result<(), Error> {
-    match get_pokemon(&pokemon) {
+    // Due to how types are handled for autocomplete value parameters, pokemon id (u16) gets passed in as a String.
+    // Hence the need to parse the string for u16.
+    match get_pokemon(&pokemon.parse().unwrap()) {
         Ok(res) => {
             let msg = {
                 poise::CreateReply::default()
@@ -255,8 +257,8 @@ async fn autocomplete_pokemon<'a>(
         };
     futures::stream::iter(mons).map(move |pokemon| {
         serenity::AutocompleteChoice::new(
-            format!("{0}", pokemon.name),
             pokemon.name,
+            pokemon.id.to_string(),
         )
     })
 }
@@ -266,14 +268,14 @@ fn get_pokemon_autocomplete(
     let mut mons: Vec<PokemonAutocomplete> = Vec::new();
     let conn = rusqlite::Connection::open("rowedex.db").unwrap();
     let mut stmt =
-        conn.prepare("select [id], [name] from pokemon where [name] like ?1")?;
+        conn.prepare("select [id], [name] from pokemon where [name] like ?1 limit 25")?;
     let mut rows = stmt.query([name_partial + "%"])?;
     while let Some(row) = rows.next()? {
         mons.push(PokemonAutocomplete { id: row.get(0)?, name: row.get(1)? });
     }
     Ok(mons)
 }
-fn get_pokemon(name: &String) -> Result<Pokemon, rusqlite::Error> {
+fn get_pokemon(id: &u16) -> Result<Pokemon, rusqlite::Error> {
     let sql = match std::fs::read_to_string("./src/queries/get_pokemon.sql") {
         Ok(contents) => contents,
         Err(e) => {
@@ -283,7 +285,7 @@ fn get_pokemon(name: &String) -> Result<Pokemon, rusqlite::Error> {
     };
     let conn = rusqlite::Connection::open("rowedex.db").unwrap();
     let mut stmt = conn.prepare(&sql).unwrap();
-    stmt.query_row([name], |row| {
+    stmt.query_row([id], |row| {
         Ok(Pokemon {
             id: row.get(0).unwrap_or(0),
             pokedex_id: row.get(1).unwrap_or(Some(0)),
