@@ -70,174 +70,162 @@ pub async fn dex(
 ) -> Result<(), Error> {
     // Due to how types are handled for autocomplete value parameters, pokemon id (u16) gets passed in as a String.
     // Hence the need to parse the string for u16.
-    match get_pokemon(&pokemon.parse().unwrap()) {
-        Ok(res) => {
-            let msg = {
-                poise::CreateReply::default()
-                    .ephemeral(true)
-                    .embed(serenity::CreateEmbed::new()
-                        .title(
-                            format!(
-                                "#{0}: {1}", 
-                                res.pokedex_id.unwrap_or(0), 
-                                res.name
-                            )
-                        )
-                        .url(
-                            format!(
-                                "https://ydarissep.github.io/R.O.W.E-Pokedex/?species={0}&table=speciesTable",
-                                res.internal_name.as_ref().unwrap_or(&"".to_string())
-                            )
-                        )
-                        .colour(get_color_from_type(&res.type1_name.as_ref().unwrap_or(&"".to_string())))
-                        .thumbnail(res.sprite.as_ref().unwrap_or(&"https://raw.githubusercontent.com/BelialClover/RoweRepo/main/graphics/pokemon/question_mark/circled/front.png".to_string()))
-                        .field(
-                            "Types",
-                            match res.type2 {
-                                Some(type2) => {
-                                    if type2 != res.type1.unwrap_or(u16::MAX) {
-                                        format!(
-                                            "{0}, {1}", 
-                                            &res.type1_name.as_ref().unwrap_or(&"".to_string()), 
-                                            &res.type2_name.as_ref().unwrap_or(&"".to_string())
-                                        )
-                                    }
-                                    else {
-                                        format!("{}", &res.type1_name.as_ref().unwrap_or(&"".to_string()))
-                                    }
-                                },
-                                None => {
-                                    format!("{}", &res.type1_name.as_ref().unwrap_or(&"".to_string()))
-                                }
-                            },
-                            true 
-                        )
-                        .field(
-                            "Abilities",
-                            match get_abilities(&res.id) {
-                                Ok(rows) => {
-                                    let mut content: String = "".to_string();
-                                    for row in rows {
-                                        content.push_str(&row.name.to_string());
-                                        content.push_str(":\t");
-                                        content.push_str(&row.description.to_string());
-                                        content.push_str("\n");
-                                    }
-                                    content
-                                },
-                                Err(e) => {
-                                    format!("{}", e.to_string())
-                                }
-                            },
-                            false
-                        )
-                        .field(
-                            "Egg Groups",
-                            match res.egg_group2 {
-                                Some(egg_group2) => {
-                                    if egg_group2 != res.egg_group1.unwrap_or(u16::MAX) {
-                                        format!(
-                                            "{0}, {1}", 
-                                            &res.egg_group1_name.as_ref().unwrap_or(&"".to_string()), 
-                                            &res.egg_group2_name.as_ref().unwrap_or(&"".to_string())
-                                        )
-                                    }
-                                    else {
-                                        format!("{}", &res.egg_group1_name.as_ref().unwrap_or(&"".to_string()))
-                                    }
-                                },
-                                None => {
-                                    format!("{}", &res.egg_group1_name.as_ref().unwrap_or(&"".to_string()))
-                                }
-                            },
-                            true 
-                        )
-                        .field(
-                            "Stats",
-                            format!("```c\nHP: \t{0}\nAtk:\t{1}\nDef:\t{2}\nSpA:\t{3}\nSpD:\t{4}\nSpe:\t{5}\nBST:\t{6}```",
-                                res.base_hp,
-                                res.base_atk,
-                                res.base_def,
-                                res.base_spa,
-                                res.base_spd,
-                                res.base_spe,
-                                res.base_total
-                            ),
-                            false
-                        )
-                        .field(
-                            "Defensive",
-                            match get_effectiveness(&res, Strategy::Defensive) {
-                                Ok(rows) => {
-                                    const LONGEST_NAME_LEN: usize = 13;
-                                    let mut content: String = "```c\n".to_string();
-                                    for row in rows {
-                                        content.push_str(&row.attacking_type);
-                                        content.push(':');
-                                        let mut i = LONGEST_NAME_LEN - row.attacking_type.chars().count(); 
-                                        while i > 0 {
-                                            content.push(' ');
-                                            i -= 1;
-                                        }
-                                        content.push_str(&row.value.to_string());
-                                        content.push_str("\n");
-                                    }
-                                    content.push_str("```");
-                                    content
-                                },
-                                Err(e) => format!("```c\nUnable to get defensive type effectiveness\n{0}```", e.to_string())
-                            },
-                            true 
-                        )
-                        .field(
-                            "Offensive",
-                            match get_effectiveness(&res, Strategy::Offensive) {
-                                Ok(rows) => {
-                                    const LONGEST_NAME_LEN: usize = 13;
-                                    let mut content: String = "```c\n".to_string();    
-                                    for row in rows {
-                                        content.push_str(&row.attacking_type);
-                                        content.push(':');
-                                        let mut i = LONGEST_NAME_LEN - row.attacking_type.chars().count();
-                                        while i > 0 {
-                                            content.push(' ');
-                                            i -= 1;
-                                        }
-                                        content.push_str(&row.value.to_string());
-                                        content.push_str("\n");
-                                    }
-                                    content.push_str("```");
-                                    content
-                                },
-                                Err(e) => format!("```c\nUnable to get offensive type effectiveness\n{0}```", e.to_string())
-                            },
-                            true 
-                        )
+    let msg = get_pokemon(&pokemon.parse().unwrap()).and_then(|pokemon| 
+        Ok(poise::CreateReply::default()
+            .ephemeral(true)
+            .embed(serenity::CreateEmbed::new()
+                .title(
+                    format!(
+                        "#{0}: {1}", 
+                        pokemon.pokedex_id.unwrap_or(0), 
+                        pokemon.name
                     )
-                    .components(vec![
-                        serenity::CreateActionRow::Buttons(vec![
-                            serenity::CreateButton::new(&("levelup_btn__".to_owned() + &res.id.to_string()))
-                                .style(serenity::ButtonStyle::Secondary)
-                                .label("Level-Up"),
-                            serenity::CreateButton::new(&("hmtm_btn__".to_owned() + &res.id.to_string()))
-                                .style(serenity::ButtonStyle::Secondary)
-                                .label("HM/TM"),
-                            serenity::CreateButton::new(&("tutor_btn__".to_owned() + &res.id.to_string()))
-                                .style(serenity::ButtonStyle::Secondary)
-                                .label("Tutor"),
-                            serenity::CreateButton::new(&("eggmoves_btn__".to_owned() + &res.id.to_string()))
-                                .style(serenity::ButtonStyle::Secondary)
-                                .label("Egg Moves")
-                        ])
-                    ])
-            };
-            ctx.send(msg).await?
-        }
-        Err(e) => {
-            println!("Failed to retrieve pokemon data. {0}", e.to_string());
-            ctx.say(format!("Pokemon not found.")).await?
-        }
-    };
+                )
+                .url(
+                    format!(
+                        "https://ydarissep.github.io/R.O.W.E-Pokedex/?species={0}&table=speciesTable",
+                        pokemon.internal_name.as_ref().unwrap_or(&"".to_string())
+                    )
+                )
+                .colour(get_color_from_type(&pokemon.type1_name.as_ref().unwrap_or(&"".to_string())))
+                .thumbnail(pokemon.sprite.as_ref().unwrap_or(&"https://raw.githubusercontent.com/BelialClover/RoweRepo/main/graphics/pokemon/question_mark/circled/front.png".to_string()))
+                .field(
+                    "Types",
+                    if let Some(type2) = pokemon.type2 {
+                        if type2 != pokemon.type1.unwrap_or(0) {
+                            format!(
+                                "{0}, {1}", 
+                                &pokemon.type1_name.as_ref().unwrap_or(&"".to_string()), 
+                                &pokemon.type2_name.as_ref().unwrap_or(&"".to_string())
+                            )
+                        } else {
+                            format!("{}", &pokemon.type1_name.as_ref().unwrap_or(&"".to_string()))
+                        }
+                    } else {
+                        format!("{}", "None")
+                    },
+                    true 
+                )
+                .field(
+                    "Abilities",
+                    match get_abilities(&pokemon.id) {
+                        Ok(rows) => {
+                            let mut content: String = "".to_string();
+                            for row in rows {
+                                content.push_str(&row.name.to_string());
+                                content.push_str(":\t");
+                                content.push_str(&row.description.to_string());
+                                content.push_str("\n");
+                            }
+                            content
+                        },
+                        Err(e) => {
+                            format!("{}", e.to_string())
+                        }
+                    },
+                    false
+                )
+                .field(
+                    "Egg Groups",
+                    match pokemon.egg_group2 {
+                        Some(egg_group2) => {
+                            if egg_group2 != pokemon.egg_group1.unwrap_or(u16::MAX) {
+                                format!(
+                                    "{0}, {1}", 
+                                    &pokemon.egg_group1_name.as_ref().unwrap_or(&"".to_string()), 
+                                    &pokemon.egg_group2_name.as_ref().unwrap_or(&"".to_string())
+                                )
+                            }
+                            else {
+                                format!("{}", &pokemon.egg_group1_name.as_ref().unwrap_or(&"".to_string()))
+                            }
+                        },
+                        None => {
+                            format!("{}", &pokemon.egg_group1_name.as_ref().unwrap_or(&"".to_string()))
+                        }
+                    },
+                    true 
+                )
+                .field(
+                    "Stats",
+                    format!("```c\nHP: \t{0}\nAtk:\t{1}\nDef:\t{2}\nSpA:\t{3}\nSpD:\t{4}\nSpe:\t{5}\nBST:\t{6}```",
+                        pokemon.base_hp,
+                        pokemon.base_atk,
+                        pokemon.base_def,
+                        pokemon.base_spa,
+                        pokemon.base_spd,
+                        pokemon.base_spe,
+                        pokemon.base_total
+                    ),
+                    false
+                )
+                .field(
+                    "Defensive",
+                    match get_effectiveness(&pokemon, Strategy::Defensive) {
+                        Ok(rows) => {
+                            const LONGEST_NAME_LEN: usize = 13;
+                            let mut content: String = "```c\n".to_string();
+                            for row in rows {
+                                content.push_str(&row.attacking_type);
+                                content.push(':');
+                                let mut i = LONGEST_NAME_LEN - row.attacking_type.chars().count(); 
+                                while i > 0 {
+                                    content.push(' ');
+                                    i -= 1;
+                                }
+                                content.push_str(&row.value.to_string());
+                                content.push_str("\n");
+                            }
+                            content.push_str("```");
+                            content
+                        },
+                        Err(e) => format!("```c\nUnable to get defensive type effectiveness\n{0}```", e.to_string())
+                    },
+                    true 
+                )
+                .field(
+                    "Offensive",
+                    match get_effectiveness(&pokemon, Strategy::Offensive) {
+                        Ok(rows) => {
+                            const LONGEST_NAME_LEN: usize = 13;
+                            let mut content: String = "```c\n".to_string();    
+                            for row in rows {
+                                content.push_str(&row.attacking_type);
+                                content.push(':');
+                                let mut i = LONGEST_NAME_LEN - row.attacking_type.chars().count();
+                                while i > 0 {
+                                    content.push(' ');
+                                    i -= 1;
+                                }
+                                content.push_str(&row.value.to_string());
+                                content.push_str("\n");
+                            }
+                            content.push_str("```");
+                            content
+                        },
+                        Err(e) => format!("```c\nUnable to get offensive type effectiveness\n{0}```", e.to_string())
+                    },
+                    true 
+                )
+            )
+            .components(vec![
+                serenity::CreateActionRow::Buttons(vec![
+                    serenity::CreateButton::new(&("levelup_btn__".to_owned() + &pokemon.id.to_string()))
+                        .style(serenity::ButtonStyle::Secondary)
+                        .label("Level-Up"),
+                    serenity::CreateButton::new(&("hmtm_btn__".to_owned() + &pokemon.id.to_string()))
+                        .style(serenity::ButtonStyle::Secondary)
+                        .label("HM/TM"),
+                    serenity::CreateButton::new(&("tutor_btn__".to_owned() + &pokemon.id.to_string()))
+                        .style(serenity::ButtonStyle::Secondary)
+                        .label("Tutor"),
+                    serenity::CreateButton::new(&("eggmoves_btn__".to_owned() + &pokemon.id.to_string()))
+                        .style(serenity::ButtonStyle::Secondary)
+                        .label("Egg Moves")
+                ])
+            ]))
+    );
+    ctx.send(msg?).await?;
     Ok(())
 }
 
@@ -256,10 +244,7 @@ async fn autocomplete_pokemon<'a>(
             }
         };
     futures::stream::iter(mons).map(move |pokemon| {
-        serenity::AutocompleteChoice::new(
-            pokemon.name,
-            pokemon.id.to_string(),
-        )
+        serenity::AutocompleteChoice::new(pokemon.name, pokemon.id.to_string())
     })
 }
 fn get_pokemon_autocomplete(
@@ -267,11 +252,15 @@ fn get_pokemon_autocomplete(
 ) -> Result<Vec<PokemonAutocomplete>, Error> {
     let mut mons: Vec<PokemonAutocomplete> = Vec::new();
     let conn = rusqlite::Connection::open("rowedex.db").unwrap();
-    let mut stmt =
-        conn.prepare("select [id], [name] from pokemon where [name] like ?1 limit 25")?;
+    let mut stmt = conn.prepare(
+        "select [id], [name] from pokemon where [name] like ?1 limit 25",
+    )?;
     let mut rows = stmt.query([name_partial + "%"])?;
     while let Some(row) = rows.next()? {
-        mons.push(PokemonAutocomplete { id: row.get(0)?, name: row.get(1)? });
+        mons.push(PokemonAutocomplete {
+            id: row.get(0)?,
+            name: row.get(1)?,
+        });
     }
     Ok(mons)
 }
@@ -410,4 +399,3 @@ fn get_effectiveness(
     }
     Ok(effects)
 }
-
