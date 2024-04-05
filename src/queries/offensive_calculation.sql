@@ -7,10 +7,12 @@ from
     base_types bt,
     base_types bt2
 inner join
+    pokemon p on (p.id = ?1)
+inner join
     types t on (
         (bt.type = t.id) 
         and (bt2.type = t.id) 
     )
 where
-    (bt.base_type = ?1)
-    and (bt2.base_type = ?2)
+    (bt.base_type = p.type1)
+    and (bt2.base_type = p.type2);
