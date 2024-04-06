@@ -53,7 +53,6 @@ struct Pokemon {
     sprite: Option<String>,
 }
 
-
 /// Retrieve information about a Pokemon from the server PokeDex.
 ///
 /// Usage:
@@ -184,13 +183,10 @@ async fn autocomplete_pokemon<'a>(
 ) -> impl Stream<Item = serenity::AutocompleteChoice> + 'a {
     // Retrieve a list of Pokemon based on the passed in partial text
     let mons: Vec<PokemonAutocomplete> =
-        match get_pokemon_autocomplete(partial.to_string()) {
-            Ok(res) => res,
-            Err(e) => {
-                println!("{}", e.to_string());
-                vec![]
-            }
-        };
+        get_pokemon_autocomplete(partial.to_string()).unwrap_or_else(|e| {
+            println!("{}", e.to_string());
+            vec![]
+        });
     futures::stream::iter(mons).map(move |pokemon| {
         serenity::AutocompleteChoice::new(pokemon.name, pokemon.id.to_string())
     })

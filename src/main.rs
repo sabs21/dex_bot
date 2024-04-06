@@ -3,16 +3,12 @@
 mod commands;
 mod events;
 
+use crate::events::get_effectiveness;
 use poise::serenity_prelude as serenity;
-use crate::events::{Strategy, get_effectiveness};
-use std::{
-    env::var,
-    sync::Arc,
-    time::Duration,
-};
+use std::{env::var, sync::Arc, time::Duration};
 
 // Custom user data passed to all command functions
-pub struct Data { }
+pub struct Data {}
 
 // Types used by all command functions
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -44,10 +40,7 @@ async fn main() {
     // FrameworkOptions contains all of poise's configuration option in one struct
     // Every option can be omitted to use its default value
     let options = poise::FrameworkOptions {
-        commands: vec![
-            commands::help(),
-            commands::dex(),
-        ],
+        commands: vec![commands::help(), commands::dex()],
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some("~".into()),
             edit_tracker: Some(Arc::new(poise::EditTracker::for_timespan(
@@ -98,65 +91,45 @@ async fn main() {
                     serenity::FullEvent::InteractionCreate { interaction } => {
                         match &interaction.kind() {
                             serenity::InteractionType::Component => {
-                                //println!("{}", interaction.as_message_component().unwrap().data.custom_id);
                                 match interaction.to_owned().message_component() {
                                     Some(msg_component) => {
                                         match &msg_component.data.custom_id.split_once("__") {
                                             Some(("typeeffectiveness_btn", pokemon_id)) => {
+                                                const LONGEST_NAME_LEN: usize = 9;
+                                                let type_effectiveness = get_effectiveness(&pokemon_id.parse::<u16>().unwrap());
+                                                let mut defensive: String = "```c\n".to_string();
+                                                let mut offensive: String = defensive.clone();
+                                                type_effectiveness.iter().for_each(|results| {
+                                                    results.iter().for_each(|result| {
+                                                        let spacing: String = ":".to_owned() + &" ".repeat(LONGEST_NAME_LEN - result.attacking_type.chars().count());
+                                                        let defensive_str = result.defensive.to_string();
+                                                        let offensive_str = result.offensive.to_string();
+                                                        defensive.push_str(&(
+                                                            result.attacking_type.clone() + 
+                                                            &spacing + 
+                                                            &defensive_str + 
+                                                            &" ".repeat(defensive_str.chars().count()) + 
+                                                            "\n"
+                                                        ));
+                                                        offensive.push_str(&(
+                                                            result.attacking_type.clone() +
+                                                            &spacing +
+                                                            &offensive_str +
+                                                            &" ".repeat(offensive_str.chars().count()) +
+                                                            "\n"
+                                                        ));
+                                                    })
+                                                });
+                                                defensive.push_str("```"); 
+                                                offensive.push_str("```");
                                                 msg_component.create_response(
                                                     _ctx,
                                                     serenity::CreateInteractionResponse::Message(
                                                         serenity::CreateInteractionResponseMessage::new()
                                                             .ephemeral(true)
                                                             .embed(serenity::CreateEmbed::new()
-                                                                .field(
-                                                                    "Defensive",
-                                                                    match get_effectiveness(&pokemon_id.parse::<u16>().unwrap(), Strategy::Defensive) {
-                                                                        Ok(rows) => {
-                                                                            const LONGEST_NAME_LEN: usize = 13;
-                                                                            let mut content: String = "```c\n".to_string();
-                                                                            for row in rows {
-                                                                                content.push_str(&row.attacking_type);
-                                                                                content.push(':');
-                                                                                let mut i = LONGEST_NAME_LEN - row.attacking_type.chars().count(); 
-                                                                                while i > 0 {
-                                                                                    content.push(' ');
-                                                                                    i -= 1;
-                                                                                }
-                                                                                content.push_str(&row.value.to_string());
-                                                                                content.push_str("\n");
-                                                                            }
-                                                                            content.push_str("```");
-                                                                            content
-                                                                        },
-                                                                        Err(e) => format!("```c\nUnable to get defensive type effectiveness\n{0}```", e.to_string())
-                                                                    },
-                                                                    true 
-                                                                )
-                                                                .field(
-                                                                    "Offensive",
-                                                                    match get_effectiveness(&pokemon_id.parse::<u16>().unwrap(), Strategy::Offensive) {
-                                                                        Ok(rows) => {
-                                                                            const LONGEST_NAME_LEN: usize = 13;
-                                                                            let mut content: String = "```c\n".to_string();    
-                                                                            for row in rows {
-                                                                                content.push_str(&row.attacking_type);
-                                                                                content.push(':');
-                                                                                let mut i = LONGEST_NAME_LEN - row.attacking_type.chars().count();
-                                                                                while i > 0 {
-                                                                                    content.push(' ');
-                                                                                    i -= 1;
-                                                                                }
-                                                                                content.push_str(&row.value.to_string());
-                                                                                content.push_str("\n");
-                                                                            }
-                                                                            content.push_str("```");
-                                                                            content
-                                                                        },
-                                                                        Err(e) => format!("```c\nUnable to get offensive type effectiveness\n{0}```", e.to_string())
-                                                                    },
-                                                                    true 
-                                                                )
+                                                                .field("Defensive", defensive, true)
+                                                                .field("Offensive", offensive, true)
                                                             )
                                                             .content("Type effectiveness/resistance.")
                                                     )
@@ -264,7 +237,7 @@ async fn main() {
                     &framework.options().commands,
                 )
                 .await?;
-                Ok(Data { })
+                Ok(Data {})
             })
         })
         .options(options)
