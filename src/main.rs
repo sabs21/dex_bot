@@ -3,7 +3,7 @@
 mod commands;
 mod events;
 
-use crate::events::get_effectiveness;
+use events::Handler;
 use poise::serenity_prelude as serenity;
 use std::{env::var, sync::Arc, time::Duration};
 
@@ -81,150 +81,6 @@ async fn main() {
         // Enforce command checks even for owners (enforced by default)
         // Set to true to bypass checks, which is useful for testing
         skip_checks_for_owners: false,
-        event_handler: |_ctx, event, _framework, _data| {
-            Box::pin(async move {
-                println!(
-                    "Got an event in event handler: {:?}",
-                    event.snake_case_name()
-                );
-                match event {
-                    serenity::FullEvent::InteractionCreate { interaction } => {
-                        match &interaction.kind() {
-                            serenity::InteractionType::Component => {
-                                match interaction.to_owned().message_component() {
-                                    Some(msg_component) => {
-                                        match &msg_component.data.custom_id.split_once("__") {
-                                            Some(("typeeffectiveness_btn", pokemon_id)) => {
-                                                const LONGEST_NAME_LEN: usize = 9;
-                                                let type_effectiveness = get_effectiveness(&pokemon_id.parse::<u16>().unwrap());
-                                                let mut defensive: String = "```c\n".to_string();
-                                                let mut offensive: String = defensive.clone();
-                                                type_effectiveness.iter().for_each(|results| {
-                                                    results.iter().for_each(|result| {
-                                                        let spacing: String = ":".to_owned() + &" ".repeat(LONGEST_NAME_LEN - result.attacking_type.chars().count());
-                                                        let defensive_str = result.defensive.to_string();
-                                                        let offensive_str = result.offensive.to_string();
-                                                        defensive.push_str(&(
-                                                            result.attacking_type.clone() + 
-                                                            &spacing + 
-                                                            &defensive_str + 
-                                                            &" ".repeat(defensive_str.chars().count()) + 
-                                                            "\n"
-                                                        ));
-                                                        offensive.push_str(&(
-                                                            result.attacking_type.clone() +
-                                                            &spacing +
-                                                            &offensive_str +
-                                                            &" ".repeat(offensive_str.chars().count()) +
-                                                            "\n"
-                                                        ));
-                                                    })
-                                                });
-                                                defensive.push_str("```"); 
-                                                offensive.push_str("```");
-                                                msg_component.create_response(
-                                                    _ctx,
-                                                    serenity::CreateInteractionResponse::Message(
-                                                        serenity::CreateInteractionResponseMessage::new()
-                                                            .ephemeral(true)
-                                                            .embed(serenity::CreateEmbed::new()
-                                                                .field("Defensive", defensive, true)
-                                                                .field("Offensive", offensive, true)
-                                                            )
-                                                            .content("Type effectiveness/resistance.")
-                                                    )
-                                                ).await?
-                                            }
-                                            Some(("levelup_btn", pokemon_id)) => {
-                                                let content = match events::get_levelup_sets(&pokemon_id.parse::<u16>().unwrap()) {
-                                                    Ok(rows) => {
-                                                        let mut output: String = "Level-Up moves\n".to_string();
-                                                        for row in rows {
-                                                            output.push_str(&row.move_name.to_string());
-                                                            output.push_str(" (Level ");
-                                                            output.push_str(&row.level.to_string());
-                                                            output.push_str(")\n");
-                                                        }
-                                                        output 
-                                                    },
-                                                    Err(e) => {
-                                                        format!("{}", e.to_string())
-                                                    } 
-                                                };
-                                                msg_component.create_response(
-                                                    _ctx,
-                                                    serenity::CreateInteractionResponse::Message(
-                                                        serenity::CreateInteractionResponseMessage::new()
-                                                            .ephemeral(true)
-                                                            .content(content)
-                                                    )
-                                                ).await?
-                                            },
-                                            Some(("hmtm_btn", _pokemon_id)) => {
-                                                msg_component.create_response(
-                                                    _ctx,
-                                                    serenity::CreateInteractionResponse::Message(
-                                                        serenity::CreateInteractionResponseMessage::new()
-                                                            .ephemeral(true)
-                                                            .content("hmtm not implemented yet.")
-                                                    )
-                                                ).await?
-                                            },
-                                            Some(("tutor_btn", _pokemon_id)) => {
-                                                msg_component.create_response(
-                                                    _ctx,
-                                                    serenity::CreateInteractionResponse::Message(
-                                                        serenity::CreateInteractionResponseMessage::new()
-                                                            .ephemeral(true)
-                                                            .content("tutor not implemented yet.")
-                                                    )
-                                                ).await?
-                                            },
-                                            Some(("eggmoves_btn", _pokemon_id)) => {
-                                                msg_component.create_response(
-                                                    _ctx,
-                                                    serenity::CreateInteractionResponse::Message(
-                                                        serenity::CreateInteractionResponseMessage::new()
-                                                            .ephemeral(true)
-                                                            .content("eggmoves not implemented yet.")
-                                                    )
-                                                ).await?
-                                            },
-                                            Some((&_, _)) => {
-                                                msg_component.create_response(
-                                                    _ctx, 
-                                                    serenity::CreateInteractionResponse::Message(
-                                                        serenity::CreateInteractionResponseMessage::new()
-                                                            .ephemeral(true)
-                                                            .content("Unknown interaction custom id.")
-                                                    )
-                                                ).await?
-                                            },
-                                            None => {
-                                                msg_component.create_response(
-                                                    _ctx, 
-                                                    serenity::CreateInteractionResponse::Message(
-                                                        serenity::CreateInteractionResponseMessage::new()
-                                                            .ephemeral(true)
-                                                            .content("Unable to parse interaction custom id.")
-                                                    )
-                                                ).await?
-                                            }
-                                        }
-                                    },
-                                    None => {
-                                        println!("Unable to convert interaction into message component.")
-                                    }
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                    _ => {}
-                }
-                Ok(())
-            })
-        },
         ..Default::default()
     };
 
@@ -251,6 +107,7 @@ async fn main() {
 
     let client = serenity::ClientBuilder::new(token, intents)
         .framework(framework)
+        .event_handler(Handler)
         .await;
 
     client.unwrap().start().await.unwrap()
