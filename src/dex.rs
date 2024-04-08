@@ -1,31 +1,13 @@
-use crate::{Context, Error};
-use futures::{Stream, StreamExt};
+pub mod eggmoves;
+pub mod hmtm;
+pub mod tutor;
+pub mod levelup;
+pub mod type_effectiveness;
+pub mod autocomplete;
+
 use poise::serenity_prelude as serenity;
+use crate::{Context, Error};
 
-/// Show this help menu
-#[poise::command(prefix_command, track_edits, slash_command)]
-pub async fn help(
-    ctx: Context<'_>,
-    #[description = "Specific command to show help about"]
-    #[autocomplete = "poise::builtins::autocomplete_command"]
-    command: Option<String>,
-) -> Result<(), Error> {
-    poise::builtins::help(
-        ctx,
-        command.as_deref(),
-        poise::builtins::HelpConfiguration {
-            extra_text_at_bottom: "This is an example bot made to showcase features of my custom Discord bot framework",
-            ..Default::default()
-        },
-    )
-    .await?;
-    Ok(())
-}
-
-struct PokemonAutocomplete {
-    id: u16,
-    name: String,
-}
 struct Pokemon {
     id: u16,
     pokedex_id: Option<u16>,
@@ -61,7 +43,7 @@ struct Pokemon {
 pub async fn dex(
     ctx: Context<'_>,
     #[description = "Retrieve information about a Pokemon from the server PokeDex."]
-    #[autocomplete = "autocomplete_pokemon"]
+    #[autocomplete = "autocomplete::autocomplete_pokemon"]
     pokemon: String,
 ) -> Result<(), Error> {
     // Due to how types are handled for autocomplete value parameters, pokemon id (u16) gets passed in as a String.
@@ -175,41 +157,8 @@ pub async fn dex(
     ctx.send(msg?).await?;
     Ok(())
 }
-
-/// Retrieve necessary autocomplete details for locating a specific Pokemon.
-async fn autocomplete_pokemon<'a>(
-    _ctx: Context<'_>,
-    partial: &'a str,
-) -> impl Stream<Item = serenity::AutocompleteChoice> + 'a {
-    // Retrieve a list of Pokemon based on the passed in partial text
-    let mons: Vec<PokemonAutocomplete> =
-        get_pokemon_autocomplete(partial.to_string()).unwrap_or_else(|e| {
-            println!("{}", e.to_string());
-            vec![]
-        });
-    futures::stream::iter(mons).map(move |pokemon| {
-        serenity::AutocompleteChoice::new(pokemon.name, pokemon.id.to_string())
-    })
-}
-fn get_pokemon_autocomplete(
-    name_partial: String,
-) -> Result<Vec<PokemonAutocomplete>, Error> {
-    let mut mons: Vec<PokemonAutocomplete> = Vec::new();
-    let conn = rusqlite::Connection::open("rowedex.db").unwrap();
-    let mut stmt = conn.prepare(
-        "select [id], [name] from pokemon where [name] like ?1 limit 25",
-    )?;
-    let mut rows = stmt.query([name_partial + "%"])?;
-    while let Some(row) = rows.next()? {
-        mons.push(PokemonAutocomplete {
-            id: row.get(0)?,
-            name: row.get(1)?,
-        });
-    }
-    Ok(mons)
-}
 fn get_pokemon(id: &u16) -> Result<Pokemon, rusqlite::Error> {
-    let sql = match std::fs::read_to_string("./src/queries/get_pokemon.sql") {
+    let sql = match std::fs::read_to_string("./src/dex/queries/get_pokemon.sql") {
         Ok(contents) => contents,
         Err(e) => {
             println!("{}", e.to_string());
@@ -248,12 +197,14 @@ fn get_pokemon(id: &u16) -> Result<Pokemon, rusqlite::Error> {
     })
     .or_else(|err| Err(err))
 }
+
+// Ability field
 struct Ability {
     name: String,
     description: String,
 }
 fn get_abilities(pokemon_id: &u16) -> Result<Vec<Ability>, rusqlite::Error> {
-    let sql = match std::fs::read_to_string("./src/queries/get_abilities.sql") {
+    let sql = match std::fs::read_to_string("./src/dex/queries/get_abilities.sql") {
         Ok(contents) => contents,
         Err(e) => {
             println!("{}", e.to_string());
@@ -278,6 +229,7 @@ fn get_abilities(pokemon_id: &u16) -> Result<Vec<Ability>, rusqlite::Error> {
     }
     Ok(abilities)
 }
+
 fn get_color_from_type(pokemon_type: &String) -> serenity::model::Color {
     match pokemon_type.as_ref() {
         "Normal" => serenity::model::Color::new(10329457),

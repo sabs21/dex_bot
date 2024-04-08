@@ -1,11 +1,12 @@
 #![warn(clippy::str_to_string)]
 
-mod commands;
-mod events;
+mod dex;
+mod help;
+mod event_controller;
 
-use events::Handler;
 use poise::serenity_prelude as serenity;
 use std::{env::var, sync::Arc, time::Duration};
+use event_controller::Handler;
 
 // Custom user data passed to all command functions
 pub struct Data {}
@@ -35,12 +36,10 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
 
 #[tokio::main]
 async fn main() {
-    //env_logger::init();
-
     // FrameworkOptions contains all of poise's configuration option in one struct
     // Every option can be omitted to use its default value
     let options = poise::FrameworkOptions {
-        commands: vec![commands::help(), commands::dex()],
+        commands: vec![help::help(), dex::dex()],
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some("~".into()),
             edit_tracker: Some(Arc::new(poise::EditTracker::for_timespan(
