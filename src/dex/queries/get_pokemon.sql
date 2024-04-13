@@ -18,9 +18,7 @@ select
     e.name as egg_group1_name,
     p.egg_group2,
     e2.name as egg_group2_name,
-    p.item1,
     i.name as item1_name,
-    p.item2,
     i2.name as item2_name,
     p.sprite
 from 
