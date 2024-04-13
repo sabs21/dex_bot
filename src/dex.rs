@@ -28,9 +28,7 @@ struct Pokemon {
     egg_group1_name: Option<String>,
     egg_group2: Option<u16>,
     egg_group2_name: Option<String>,
-    item1: Option<u16>,
     item1_name: Option<String>,
-    item2: Option<u16>,
     item2_name: Option<String>,
     sprite: Option<String>,
 }
@@ -98,6 +96,17 @@ pub async fn dex(
                         ))
                         .collect::<Vec<String>>()
                         .concat(),
+                    false
+                )
+                .field(
+                    "Held Items",
+                    pokemon.item1_name
+                        .map_or("".to_owned(), |item| "50% ".to_owned() + &item)
+                        .to_string()
+                    +
+                    &pokemon.item2_name
+                        .map_or("".to_owned(), |item| "5% ".to_owned() + &item)
+                    ,
                     false
                 )
                 .field(
@@ -188,11 +197,9 @@ fn get_pokemon(id: &u16) -> Result<Pokemon, rusqlite::Error> {
             egg_group1_name: row.get(16).unwrap_or(Some("".to_string())),
             egg_group2: row.get(17).unwrap_or(Some(0)),
             egg_group2_name: row.get(18).unwrap_or(Some("".to_string())),
-            item1: row.get(19).unwrap_or(Some(0)),
-            item1_name: row.get(20).unwrap_or(Some("".to_string())),
-            item2: row.get(21).unwrap_or(Some(0)),
-            item2_name: row.get(22).unwrap_or(Some("".to_string())),
-            sprite: row.get(23).unwrap_or(Some("".to_string())),
+            item1_name: row.get(19).unwrap_or(Some("".to_string())),
+            item2_name: row.get(20).unwrap_or(Some("".to_string())),
+            sprite: row.get(21).unwrap_or(Some("".to_string())),
         })
     })
     .or_else(|err| Err(err))
