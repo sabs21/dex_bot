@@ -33,6 +33,35 @@ struct Pokemon {
     sprite: Option<String>,
 }
 
+impl Pokemon {
+    fn default() -> Pokemon {
+        Pokemon {
+            id: 27, // In rowedex.db, the None pokemon has an id of 27
+            pokedex_id: Some(0),
+            name: "None".to_string(),
+            internal_name: Some("SPECIES_NONE".to_string()),
+            base_hp: 0,
+            base_atk: 0,
+            base_def: 0,
+            base_spa: 0,
+            base_spd: 0,
+            base_spe: 0,
+            base_total: 0,
+            type1: None,
+            type1_name: None,
+            type2: None,
+            type2_name: None,
+            egg_group1: None,
+            egg_group1_name: None,
+            egg_group2: None,
+            egg_group2_name: None,
+            item1_name: None,
+            item2_name: None,
+            sprite: Some("https://raw.githubusercontent.com/BelialClover/RoweRepo/main/graphics/pokemon/question_mark/circled/front.png".to_string()) 
+        }
+    }
+}
+
 /// Retrieve information about a Pokemon from the server PokeDex.
 ///
 /// Usage:
@@ -46,38 +75,48 @@ pub async fn dex(
 ) -> Result<(), Error> {
     // Due to how types are handled for autocomplete value parameters, pokemon id (u16) gets passed in as a String.
     // Hence the need to parse the string for u16.
-    let msg = get_pokemon(&pokemon.parse().unwrap()).and_then(|pokemon| { 
+    let pokemon_id: &Option<u16> = &pokemon.parse::<u16>().map_or_else(|_| None, |id| Some(id));
+    let pokemon_result: Result<Pokemon, rusqlite::Error>;
+    // If the user did not click an autocomplete option and instead manually typed
+    // the name, this if statement will catch that case and try the query again by name.
+    if pokemon_id.is_some() {
+        pokemon_result = get_pokemon_by_id(&pokemon_id.expect("Pokemon ID incorrectly parsed."));
+    }
+    else {
+        pokemon_result = get_pokemon_by_name(&pokemon);
+    }
+    let msg = pokemon_result.and_then(|p| { 
         Ok(poise::CreateReply::default()
             .ephemeral(true)
             .embed(serenity::CreateEmbed::new()
                 .title(
                     format!(
                         "#{0}: {1}", 
-                        pokemon.pokedex_id.unwrap_or(0), 
-                        pokemon.name
+                        p.pokedex_id.unwrap_or(0), 
+                        p.name
                     )
                 )
                 .url(
                     format!(
                         "https://ydarissep.github.io/R.O.W.E-Pokedex/?species={0}&table=speciesTable",
-                        pokemon.internal_name.as_ref().unwrap_or(&"".to_string())
+                        p.internal_name.as_ref().unwrap_or(&"".to_string())
                     )
                 )
-                .colour(get_color_from_type(&pokemon.type1_name.as_ref().unwrap_or(&"".to_string())))
-                .thumbnail(pokemon.sprite.as_ref().unwrap_or(&"https://raw.githubusercontent.com/BelialClover/RoweRepo/main/graphics/pokemon/question_mark/circled/front.png".to_string()))
+                .colour(get_color_from_type(&p.type1_name.as_ref().unwrap_or(&"".to_string())))
+                .thumbnail(p.sprite.unwrap())
                 .field(
                     "Types",
-                    &pokemon.type1_name.as_ref().map_or(
+                    &p.type1_name.as_ref().map_or(
                         format!("{}", "None"),
                         |type1_name| {
-                            if pokemon.type1.unwrap_or(0) == pokemon.type2.unwrap_or(0) {
+                            if p.type1.unwrap_or(0) == p.type2.unwrap_or(0) {
                                 format!("{}", type1_name)
                             }
                             else {
                                 format!(
                                     "{0}, {1}", 
                                     type1_name,
-                                    &pokemon.type2_name.as_ref().unwrap_or(&"".to_string())
+                                    &p.type2_name.as_ref().unwrap_or(&"".to_string())
                                 )
                             }
                         }
@@ -86,7 +125,7 @@ pub async fn dex(
                 )
                 .field(
                     "Abilities",
-                    get_abilities(&pokemon.id)
+                    get_abilities(&p.id)
                         .unwrap_or(vec![])
                         .iter()
                         .map(|row| format!(
@@ -100,28 +139,28 @@ pub async fn dex(
                 )
                 .field(
                     "Held Items",
-                    pokemon.item1_name
+                    p.item1_name
                         .map_or("".to_owned(), |item| "50% ".to_owned() + &item)
                         .to_string()
                     +
-                    &pokemon.item2_name
+                    &p.item2_name
                         .map_or("".to_owned(), |item| "5% ".to_owned() + &item)
                     ,
                     false
                 )
                 .field(
                     "Egg Groups",
-                    &pokemon.egg_group1_name.as_ref().map_or(
+                    &p.egg_group1_name.as_ref().map_or(
                         format!("{}", "None"),
                         |egg_group1_name| {
-                            if pokemon.egg_group1.unwrap_or(0) == pokemon.egg_group2.unwrap_or(0) {
+                            if p.egg_group1.unwrap_or(0) == p.egg_group2.unwrap_or(0) {
                                 format!("{}", egg_group1_name)
                             }
                             else {
                                 format!(
                                     "{0}, {1}", 
                                     egg_group1_name,
-                                    &pokemon.egg_group2_name.as_ref().unwrap_or(&"".to_string())
+                                    &p.egg_group2_name.as_ref().unwrap_or(&"".to_string())
                                 )
                             }
                         }
@@ -131,32 +170,32 @@ pub async fn dex(
                 .field(
                     "Stats",
                     format!("```c\nHP: \t{0}\nAtk:\t{1}\nDef:\t{2}\nSpA:\t{3}\nSpD:\t{4}\nSpe:\t{5}\nBST:\t{6}```",
-                        pokemon.base_hp,
-                        pokemon.base_atk,
-                        pokemon.base_def,
-                        pokemon.base_spa,
-                        pokemon.base_spd,
-                        pokemon.base_spe,
-                        pokemon.base_total
+                        p.base_hp,
+                        p.base_atk,
+                        p.base_def,
+                        p.base_spa,
+                        p.base_spd,
+                        p.base_spe,
+                        p.base_total
                     ),
                     false
                 )
             )
             .components(vec![
                 serenity::CreateActionRow::Buttons(vec![
-                    serenity::CreateButton::new(&("typeeffectiveness_btn__".to_owned() + &pokemon.id.to_string()))
+                    serenity::CreateButton::new(&("typeeffectiveness_btn__".to_owned() + &p.id.to_string()))
                         .style(serenity::ButtonStyle::Secondary)
                         .label("Type Effectiveness"),
-                    serenity::CreateButton::new(&("levelup_btn__".to_owned() + &pokemon.id.to_string()))
+                    serenity::CreateButton::new(&("levelup_btn__".to_owned() + &p.id.to_string()))
                         .style(serenity::ButtonStyle::Secondary)
                         .label("Level-Up"),
-                    serenity::CreateButton::new(&("hmtm_btn__".to_owned() + &pokemon.id.to_string()))
+                    serenity::CreateButton::new(&("hmtm_btn__".to_owned() + &p.id.to_string()))
                         .style(serenity::ButtonStyle::Secondary)
                         .label("HM/TM"),
-                    serenity::CreateButton::new(&("tutor_btn__".to_owned() + &pokemon.id.to_string()))
+                    serenity::CreateButton::new(&("tutor_btn__".to_owned() + &p.id.to_string()))
                         .style(serenity::ButtonStyle::Secondary)
                         .label("Tutor"),
-                    serenity::CreateButton::new(&("eggmoves_btn__".to_owned() + &pokemon.id.to_string()))
+                    serenity::CreateButton::new(&("eggmoves_btn__".to_owned() + &p.id.to_string()))
                         .style(serenity::ButtonStyle::Secondary)
                         .label("Egg Moves")
                 ])
@@ -166,7 +205,7 @@ pub async fn dex(
     ctx.send(msg?).await?;
     Ok(())
 }
-fn get_pokemon(id: &u16) -> Result<Pokemon, rusqlite::Error> {
+fn get_pokemon_by_id(id: &u16) -> Result<Pokemon, rusqlite::Error> {
     let sql = match std::fs::read_to_string("./src/dex/queries/get_pokemon.sql") {
         Ok(contents) => contents,
         Err(e) => {
@@ -177,32 +216,85 @@ fn get_pokemon(id: &u16) -> Result<Pokemon, rusqlite::Error> {
     let conn = rusqlite::Connection::open("rowedex.db").unwrap();
     let mut stmt = conn.prepare(&sql).unwrap();
     stmt.query_row([id], |row| {
+        let default_pokemon = Pokemon::default();
         Ok(Pokemon {
-            id: row.get(0).unwrap_or(0),
-            pokedex_id: row.get(1).unwrap_or(Some(0)),
-            name: row.get(2).unwrap_or("".to_string()),
-            internal_name: row.get(3).unwrap_or(Some("".to_string())),
-            base_hp: row.get(4).unwrap_or(0),
-            base_atk: row.get(5).unwrap_or(0),
-            base_def: row.get(6).unwrap_or(0),
-            base_spa: row.get(7).unwrap_or(0),
-            base_spd: row.get(8).unwrap_or(0),
-            base_spe: row.get(9).unwrap_or(0),
-            base_total: row.get(10).unwrap_or(0),
-            type1: row.get(11).unwrap_or(Some(0)),
-            type1_name: row.get(12).unwrap_or(Some("".to_string())),
-            type2: row.get(13).unwrap_or(Some(0)),
-            type2_name: row.get(14).unwrap_or(Some("".to_string())),
-            egg_group1: row.get(15).unwrap_or(Some(0)),
-            egg_group1_name: row.get(16).unwrap_or(Some("".to_string())),
-            egg_group2: row.get(17).unwrap_or(Some(0)),
-            egg_group2_name: row.get(18).unwrap_or(Some("".to_string())),
-            item1_name: row.get(19).unwrap_or(Some("".to_string())),
-            item2_name: row.get(20).unwrap_or(Some("".to_string())),
-            sprite: row.get(21).unwrap_or(Some("".to_string())),
+            id: row.get(0).unwrap_or(default_pokemon.id),
+            pokedex_id: row.get(1).unwrap_or(default_pokemon.pokedex_id),
+            name: row.get(2).unwrap_or(default_pokemon.name),
+            internal_name: row.get(3).unwrap_or(default_pokemon.internal_name),
+            base_hp: row.get(4).unwrap_or(default_pokemon.base_hp),
+            base_atk: row.get(5).unwrap_or(default_pokemon.base_atk),
+            base_def: row.get(6).unwrap_or(default_pokemon.base_def),
+            base_spa: row.get(7).unwrap_or(default_pokemon.base_spa),
+            base_spd: row.get(8).unwrap_or(default_pokemon.base_spd),
+            base_spe: row.get(9).unwrap_or(default_pokemon.base_spe),
+            base_total: row.get(10).unwrap_or(default_pokemon.base_total),
+            type1: row.get(11).unwrap_or(default_pokemon.type1),
+            type1_name: row.get(12).unwrap_or(default_pokemon.type1_name),
+            type2: row.get(13).unwrap_or(default_pokemon.type2),
+            type2_name: row.get(14).unwrap_or(default_pokemon.type2_name),
+            egg_group1: row.get(15).unwrap_or(default_pokemon.egg_group1),
+            egg_group1_name: row.get(16).unwrap_or(default_pokemon.egg_group1_name),
+            egg_group2: row.get(17).unwrap_or(default_pokemon.egg_group2),
+            egg_group2_name: row.get(18).unwrap_or(default_pokemon.egg_group2_name),
+            item1_name: row.get(19).unwrap_or(default_pokemon.item1_name),
+            item2_name: row.get(20).unwrap_or(default_pokemon.item2_name),
+            sprite: row.get(21).unwrap_or(default_pokemon.sprite),
         })
     })
-    .or_else(|err| Err(err))
+    .or_else(|err| match err {
+        rusqlite::Error::QueryReturnedNoRows => {
+            Ok(Pokemon::default())
+        },
+        _ => Err(err)
+    })
+}
+// Intended as the backup in case the id search fails
+fn get_pokemon_by_name(name: &str) -> Result<Pokemon, rusqlite::Error> {
+    let sql = match std::fs::read_to_string("./src/dex/queries/get_pokemon_by_name.sql") {
+        Ok(contents) => contents,
+        Err(e) => {
+            println!("{}", e.to_string());
+            panic!()
+        }
+    };
+    let conn = rusqlite::Connection::open("rowedex.db").unwrap();
+    let mut stmt = conn.prepare(&sql).unwrap();
+    stmt.query_row([name], |row| {
+        let default_pokemon = Pokemon::default();
+        Ok(Pokemon {
+            id: row.get(0).unwrap_or(default_pokemon.id),
+            pokedex_id: row.get(1).unwrap_or(default_pokemon.pokedex_id),
+            name: row.get(2).unwrap_or(default_pokemon.name),
+            internal_name: row.get(3).unwrap_or(default_pokemon.internal_name),
+            base_hp: row.get(4).unwrap_or(default_pokemon.base_hp),
+            base_atk: row.get(5).unwrap_or(default_pokemon.base_atk),
+            base_def: row.get(6).unwrap_or(default_pokemon.base_def),
+            base_spa: row.get(7).unwrap_or(default_pokemon.base_spa),
+            base_spd: row.get(8).unwrap_or(default_pokemon.base_spd),
+            base_spe: row.get(9).unwrap_or(default_pokemon.base_spe),
+            base_total: row.get(10).unwrap_or(default_pokemon.base_total),
+            type1: row.get(11).unwrap_or(default_pokemon.type1),
+            type1_name: row.get(12).unwrap_or(default_pokemon.type1_name),
+            type2: row.get(13).unwrap_or(default_pokemon.type2),
+            type2_name: row.get(14).unwrap_or(default_pokemon.type2_name),
+            egg_group1: row.get(15).unwrap_or(default_pokemon.egg_group1),
+            egg_group1_name: row.get(16).unwrap_or(default_pokemon.egg_group1_name),
+            egg_group2: row.get(17).unwrap_or(default_pokemon.egg_group2),
+            egg_group2_name: row.get(18).unwrap_or(default_pokemon.egg_group2_name),
+            item1_name: row.get(19).unwrap_or(default_pokemon.item1_name),
+            item2_name: row.get(20).unwrap_or(default_pokemon.item2_name),
+            sprite: row.get(21).unwrap_or(default_pokemon.sprite),
+        })
+    })
+    .or_else(|err| match err {
+        rusqlite::Error::QueryReturnedNoRows => {
+            let mut default_pokemon = Pokemon::default();
+            default_pokemon.name = "Could not find \"".to_string() + name + "\"";
+            Ok(default_pokemon)
+        },
+        _ => Err(err)
+    }) 
 }
 
 // Ability field
