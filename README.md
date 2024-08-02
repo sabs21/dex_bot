@@ -1,7 +1,6 @@
-Hammer+
+(R.O.W.E) PokeDex Discord Bot
 -----
-A Discord bot built for the R.O.W.E Discord server!
-NOTE: This bot is an active work in progress. While it's functional, it is not complete as there are still placeholder messages and TODO's scattered about.
+A Discord bot built for the R.O.W.E Discord server which gives users the ability to find information about a specific Pokemon.
 
 Getting Started:
 1. Clone this repo
