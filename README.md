@@ -9,4 +9,4 @@ Getting Started:
 4. Run start.bat to start the bot.
 
 Commands:
-- dex: Displays information about a Pokemon such as type, abiltiies, stats, defensive and offensive resistences, egg groups, and more.
+- dex: Displays information about a Pokemon such as type, abiltiies, stats, defensive and offensive resistence, egg groups, and more.
